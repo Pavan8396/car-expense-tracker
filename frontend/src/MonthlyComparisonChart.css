@@ -1,0 +1,29 @@
+.monthly-comparison-chart {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.monthly-comparison-chart h3 {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.chart-wrapper {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .monthly-comparison-chart {
+    padding: 15px;
+  }
+
+  .chart-wrapper {
+    height: 250px;
+  }
+}

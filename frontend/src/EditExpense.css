@@ -1,0 +1,41 @@
+.edit-expense-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.edit-expense-form select,
+.edit-expense-form input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  flex: 1;
+  min-width: 150px;
+}
+
+.edit-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.edit-buttons button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.edit-buttons button:first-of-type {
+  background: #36A2EB;
+  color: #fff;
+}
+
+.edit-buttons button:last-of-type {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.edit-buttons button:hover {
+  opacity: 0.9;
+}
