@@ -62,10 +62,15 @@ const ExpenseSchema = new mongoose.Schema({
     required: [true, "Date is required"],
     validate: {
       validator: function(v) {
-        const date = new Date(v);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return !isNaN(date) && date <= today;
+        if (!v) return false;
+        const inputDate = new Date(v);
+        if (isNaN(inputDate.getTime())) return false;
+
+        // Allow up to tomorrow's date in server time to accommodate timezone differences
+        const limitDate = new Date();
+        limitDate.setDate(limitDate.getDate() + 1);
+        limitDate.setHours(23, 59, 59, 999);
+        return inputDate <= limitDate;
       },
       message: "Date must be valid and not in the future"
     }
@@ -96,10 +101,16 @@ const validateExpense = (req, res, next) => {
   }
 
   const selectedDate = new Date(date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  if (isNaN(selectedDate.getTime())) {
+    return res.status(400).json({ error: "Date must be valid" });
+  }
 
-  if (isNaN(selectedDate) || selectedDate > today) {
+  // Allow up to tomorrow's date in server time to accommodate timezone differences
+  const limitDate = new Date();
+  limitDate.setDate(limitDate.getDate() + 1);
+  limitDate.setHours(23, 59, 59, 999);
+
+  if (selectedDate > limitDate) {
     return res.status(400).json({ error: "Date must be valid and not in the future" });
   }
 
@@ -184,8 +195,8 @@ app.post("/api/expenses/:id/duplicate", async (req, res) => {
       return res.status(404).json({ error: "Expense not found" });
     }
 
-    // Create a new expense with same data but new date (today)
-    const today = new Date().toISOString().split("T")[0];
+    // Use client's local date if provided, fallback to server's UTC date
+    const today = req.body.localDate || new Date().toISOString().split("T")[0];
     const newExpense = new Expense({
       category: expense.category,
       amount: expense.amount,

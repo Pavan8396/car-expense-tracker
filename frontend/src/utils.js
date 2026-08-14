@@ -28,11 +28,13 @@ export const validateAmount = (amount) => {
 
 // Validate date (cannot be in the future)
 export const validateDate = (dateString) => {
-  const selectedDate = new Date(dateString);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const localTodayStr = `${year}-${month}-${day}`;
   
-  if (selectedDate > today) {
+  if (dateString > localTodayStr) {
     return { valid: false, error: "Date cannot be in the future" };
   }
   return { valid: true };
