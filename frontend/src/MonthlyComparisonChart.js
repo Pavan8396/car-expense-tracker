@@ -57,12 +57,15 @@ function MonthlyComparisonChart({ expenses }) {
     ],
   };
 
+  const isMobile = window.innerWidth <= 768;
+
   const options = {
     responsive: true,
-    maintainAspectRatio: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: "top",
+        position: isMobile ? "bottom" : "top",
+        labels: { boxWidth: 12, padding: 8, font: { size: 12 } }
       },
       tooltip: {
         callbacks: {
@@ -75,15 +78,19 @@ function MonthlyComparisonChart({ expenses }) {
         beginAtZero: true,
         ticks: {
           callback: (value) => `₹${value.toLocaleString("en-IN")}`,
+          font: { size: 11 }
         },
       },
+      x: {
+        ticks: { font: { size: 11 } }
+      }
     },
   };
 
   return (
     <div className="chart-box">
       <h2>Month-over-Month Comparison</h2>
-      <div className="chart-wrapper">
+      <div className="chart-canvas-container">
         <Bar data={data} options={options} />
       </div>
     </div>
