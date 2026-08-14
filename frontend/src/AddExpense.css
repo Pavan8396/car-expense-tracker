@@ -8,17 +8,19 @@
 
 .add-expense-form select,
 .add-expense-form input {
-  padding: 10px 14px;
+  padding: 12px 14px;
   border: 1.5px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 10px;
   background-color: #f8fafc;
   color: #1e293b;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
   transition: all 0.2s ease-in-out;
   outline: none;
   flex: 1;
   min-width: 140px;
+  min-height: 48px;
+  box-sizing: border-box;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
@@ -36,17 +38,18 @@
 }
 
 .add-expense-form button {
-  padding: 10px 20px;
-  background-color: #10b981; /* Premium emerald emerald */
+  padding: 12px 24px;
+  background-color: #10b981; /* Premium emerald */
   color: #ffffff;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 10px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   white-space: nowrap;
+  min-height: 48px;
 }
 
 .add-expense-form button:hover {
