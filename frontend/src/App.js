@@ -9,7 +9,6 @@ import Loading from "./Loading";
 import CategoryManager from "./CategoryManager";
 import QuickStats from "./QuickStats";
 import MonthlySummary from "./MonthlySummary";
-import MonthlyComparisonChart from "./MonthlyComparisonChart";
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
 import { formatDate, formatAmount, getDateRangeShortcut, calculateStats } from "./utils";
@@ -365,10 +364,7 @@ function App() {
       {loading ? (
         <Loading />
       ) : sortedExpenses.length > 0 ? (
-        <>
-          <ExpenseChart expenses={sortedExpenses} />
-          <MonthlyComparisonChart expenses={expenses} />
-        </>
+        <ExpenseChart expenses={sortedExpenses} allExpenses={expenses} />
       ) : (
         <div className="empty-state">
           <p>📊 No expense data to display</p>

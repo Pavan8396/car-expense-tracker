@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Pie, Line } from "react-chartjs-2";
 import { Chart as ChartJS } from "chart.js/auto";
 import ChartDataLabels from "chartjs-plugin-datalabels";
+import MonthlyComparisonChart from "./MonthlyComparisonChart";
 
 ChartJS.register(ChartDataLabels);
 
@@ -42,7 +43,7 @@ const exportChartData = (categoryTotals, monthlyTotals) => {
   URL.revokeObjectURL(url);
 };
 
-function ExpenseChart({ expenses }) {
+function ExpenseChart({ expenses, allExpenses }) {
   const [showMovingAverage, setShowMovingAverage] = useState(true);
 
   if (!expenses || expenses.length === 0) {
@@ -157,6 +158,7 @@ function ExpenseChart({ expenses }) {
         <h2>Category Breakdown</h2>
         <Pie data={pieData} options={pieOptions} />
       </div>
+
       <div className="chart-box">
         <h2>Monthly Trend</h2>
         <div style={{ textAlign: "right", marginBottom: "10px" }}>
@@ -166,7 +168,7 @@ function ExpenseChart({ expenses }) {
               checked={showMovingAverage}
               onChange={() => setShowMovingAverage(!showMovingAverage)}
             />{" "}
-            Show Moving Average
+              Show Moving Average
           </label>
         </div>
         <Line data={lineData} options={lineOptions} />
@@ -186,6 +188,8 @@ function ExpenseChart({ expenses }) {
           </button>
         </div>
       </div>
+
+      <MonthlyComparisonChart expenses={allExpenses || []} />
     </div>
   );
 }
