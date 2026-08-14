@@ -95,7 +95,15 @@ function App() {
   // Duplicate expense
   const handleDuplicate = async (expense) => {
     try {
-      await axios.post(`${API_URL}/api/expenses/${expense._id}/duplicate`);
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, "0");
+      const day = String(today.getDate()).padStart(2, "0");
+      const localTodayStr = `${year}-${month}-${day}`;
+
+      await axios.post(`${API_URL}/api/expenses/${expense._id}/duplicate`, {
+        localDate: localTodayStr
+      });
       fetchExpenses();
       showToast(`${expense.category} expense duplicated!`, "success");
     } catch (err) {
