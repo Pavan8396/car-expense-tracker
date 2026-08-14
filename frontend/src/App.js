@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useRef } from "react";
+import axios from "./api";
+import { App as CapApp } from "@capacitor/app";
 import AddExpense from "./AddExpense";
 import ExpenseChart from "./ExpenseChart";
 import EditExpense from "./EditExpense";
@@ -38,10 +39,210 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Backup and Restore
+  const fileInputRef = useRef(null);
+  const [importModal, setImportModal] = useState(null);
+
+  // Export Backup
+  const handleExportBackup = () => {
+    try {
+      const expensesData = localStorage.getItem("car_expenses") || "[]";
+      const categoriesData = localStorage.getItem("car_categories") || "[]";
+
+      const backupData = {
+        version: "1.0",
+        expenses: JSON.parse(expensesData),
+        categories: JSON.parse(categoriesData),
+        exportedAt: new Date().toISOString()
+      };
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      const today = new Date();
+      const dateString = today.toISOString().split("T")[0];
+      saveAs(blob, `car-expense-backup-${dateString}.json`);
+      showToast("Backup exported successfully", "success");
+    } catch (err) {
+      console.error("Export backup error:", err);
+      showToast("Failed to export backup", "error");
+    }
+  };
+
+  // File Import handler
+  const handleFileImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+
+        let validatedExpenses = [];
+        let validatedCategories = [];
+        let isMigration = false;
+
+        if (data && typeof data === "object" && !Array.isArray(data)) {
+          if (Array.isArray(data.expenses)) {
+            validatedExpenses = data.expenses;
+          }
+          if (Array.isArray(data.categories)) {
+            validatedCategories = data.categories;
+          }
+        } else if (Array.isArray(data)) {
+          // Check if it looks like an array of expenses
+          const looksLikeExpenses = data.every(item => item && (item.category || item.amount || item.date));
+          if (looksLikeExpenses) {
+            validatedExpenses = data;
+            isMigration = true;
+          } else {
+            throw new Error("Invalid array structure. Not recognized as expenses list.");
+          }
+        } else {
+          throw new Error("Invalid file format.");
+        }
+
+        if (validatedExpenses.length === 0 && validatedCategories.length === 0) {
+          showToast("No valid data found in backup file.", "error");
+          return;
+        }
+
+        setImportModal({
+          expenses: validatedExpenses,
+          categories: validatedCategories,
+          isMigration
+        });
+      } catch (err) {
+        console.error("Import backup parsing error:", err);
+        showToast("Invalid JSON backup: " + err.message, "error");
+      } finally {
+        e.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Perform the actual Restore/Import
+  const confirmImport = () => {
+    if (!importModal) return;
+
+    try {
+      // 1. Create automatic backup of current state before overwriting
+      const currentExpenses = localStorage.getItem("car_expenses") || "[]";
+      const currentCategories = localStorage.getItem("car_categories") || "[]";
+      localStorage.setItem("car_expenses_backup_pre_import", JSON.stringify({
+        expenses: JSON.parse(currentExpenses),
+        categories: JSON.parse(currentCategories),
+        timestamp: new Date().toISOString()
+      }));
+
+      // 2. Perform restore/migration
+      if (importModal.isMigration) {
+        const mappedExpenses = importModal.expenses.map(exp => {
+          let id = exp._id;
+          if (id && typeof id === "object" && id.$oid) id = id.$oid;
+          if (!id) id = `exp_${Math.random().toString(36).substring(2, 11)}`;
+          return {
+            _id: id,
+            category: exp.category || "Other",
+            amount: Number(exp.amount) || 0,
+            date: exp.date ? exp.date.split("T")[0] : new Date().toISOString().split("T")[0],
+            notes: exp.notes || "",
+            createdAt: exp.createdAt || new Date().toISOString()
+          };
+        });
+
+        localStorage.setItem("car_expenses", JSON.stringify(mappedExpenses));
+        // Keep existing categories or reset to defaults
+        if (!localStorage.getItem("car_categories") || JSON.parse(localStorage.getItem("car_categories")).length === 0) {
+          const defaultCats = ["EMI", "Fuel", "Insurance", "Maintenance", "Parking", "Accessories"].map(name => ({
+            _id: `cat_${Math.random().toString(36).substring(2, 11)}`,
+            name,
+            createdAt: new Date().toISOString()
+          }));
+          localStorage.setItem("car_categories", JSON.stringify(defaultCats));
+        }
+        showToast("MongoDB expenses imported successfully!", "success");
+      } else {
+        const mappedExpenses = importModal.expenses.map(exp => {
+          let id = exp._id;
+          if (id && typeof id === "object" && id.$oid) id = id.$oid;
+          if (!id) id = `exp_${Math.random().toString(36).substring(2, 11)}`;
+          return {
+            _id: id,
+            category: exp.category || "Other",
+            amount: Number(exp.amount) || 0,
+            date: exp.date ? exp.date.split("T")[0] : new Date().toISOString().split("T")[0],
+            notes: exp.notes || "",
+            createdAt: exp.createdAt || new Date().toISOString()
+          };
+        });
+
+        const mappedCategories = importModal.categories.map(cat => {
+          let id = cat._id;
+          if (id && typeof id === "object" && id.$oid) id = id.$oid;
+          if (!id) id = `cat_${Math.random().toString(36).substring(2, 11)}`;
+          return {
+            _id: id,
+            name: cat.name || "Custom",
+            createdAt: cat.createdAt || new Date().toISOString()
+          };
+        });
+
+        localStorage.setItem("car_expenses", JSON.stringify(mappedExpenses));
+        localStorage.setItem("car_categories", JSON.stringify(mappedCategories));
+        showToast("Backup restored successfully!", "success");
+      }
+
+      setImportModal(null);
+      fetchExpenses();
+      fetchCategories();
+    } catch (err) {
+      console.error("Error restoring backup:", err);
+      showToast("Failed to restore backup", "error");
+    }
+  };
+
   // Reset page to 1 when filters or sorting change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filterCategory, startDate, endDate, sortConfig]);
+
+  // Handle Android Back Button
+  useEffect(() => {
+    let backButtonListener;
+
+    const setupBackButton = async () => {
+      try {
+        if (window.Capacitor && window.Capacitor.isPluginAvailable("App")) {
+          backButtonListener = await CapApp.addListener("backButton", () => {
+            // If any modal is open, close it!
+            if (deleteModal) {
+              setDeleteModal(null);
+            } else if (editingExpense) {
+              setEditingExpense(null);
+            } else if (categoryManagerOpen) {
+              setCategoryManagerOpen(false);
+            } else if (importModal) {
+              setImportModal(null);
+            } else {
+              // Otherwise, minimize or exit the app
+              CapApp.exitApp();
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Capacitor App plugin backButton listener not initialized:", err);
+      }
+    };
+
+    setupBackButton();
+
+    return () => {
+      if (backButtonListener && typeof backButtonListener.remove === "function") {
+        backButtonListener.remove();
+      }
+    };
+  }, [deleteModal, editingExpense, categoryManagerOpen, importModal]);
 
   // Fetch all expenses
   const fetchExpenses = () => {
@@ -252,6 +453,17 @@ function App() {
         />
       )}
 
+      {/* Import Confirmation Modal */}
+      {importModal && (
+        <Modal
+          title="Confirm Backup Restore"
+          message={`Are you sure you want to restore this backup? Doing so will COMPLETELY OVERWRITE your current expenses and categories. A safety restore point will be saved to your device's memory before overwriting, but proceed with caution.`}
+          type="warning"
+          onConfirm={confirmImport}
+          onCancel={() => setImportModal(null)}
+        />
+      )}
+
       {/* Category Manager Modal */}
       <CategoryManager
         isOpen={categoryManagerOpen}
@@ -310,6 +522,15 @@ function App() {
             >
               ⚙️ Categories
             </button>
+            <button onClick={handleExportBackup} aria-label="Export backup JSON" className="btn-export-backup" style={{ backgroundColor: "#27ae60", color: "#fff" }}>📤 Export Backup</button>
+            <button onClick={() => fileInputRef.current.click()} aria-label="Import backup JSON" className="btn-import-backup" style={{ backgroundColor: "#2980b9", color: "#fff" }}>📥 Import Backup</button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              accept=".json"
+              onChange={handleFileImport}
+            />
           </div>
         </div>
       </div>
