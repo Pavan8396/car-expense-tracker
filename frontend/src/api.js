@@ -133,11 +133,11 @@ const localApi = {
     }
 
     // Duplicate expense endpoint: /api/expenses/:id/duplicate
-    const duplicateMatch = url.match(/\/api\/expenses\/(exp_[a-zA-Z0-9]+)\/duplicate$/);
+    const duplicateMatch = url.match(/\/api\/expenses\/([^/]+)\/duplicate$/);
     if (duplicateMatch) {
       const expenseId = duplicateMatch[1];
       const expenses = JSON.parse(localStorage.getItem("car_expenses") || "[]");
-      const original = expenses.find(exp => exp._id === expenseId);
+      const original = expenses.find(exp => String(exp._id) === String(expenseId));
       if (!original) {
         throwAxiosError("Expense not found");
       }
@@ -165,11 +165,11 @@ const localApi = {
     await sleep(DELAY);
 
     // Update expense endpoint: /api/expenses/:id
-    const expenseMatch = url.match(/\/api\/expenses\/(exp_[a-zA-Z0-9]+)$/);
+    const expenseMatch = url.match(/\/api\/expenses\/([^/]+)$/);
     if (expenseMatch) {
       const expenseId = expenseMatch[1];
       const expenses = JSON.parse(localStorage.getItem("car_expenses") || "[]");
-      const index = expenses.findIndex(exp => exp._id === expenseId);
+      const index = expenses.findIndex(exp => String(exp._id) === String(expenseId));
       if (index === -1) {
         throwAxiosError("Expense not found");
       }
@@ -200,11 +200,11 @@ const localApi = {
     await sleep(DELAY);
 
     // Delete expense endpoint: /api/expenses/:id
-    const expenseMatch = url.match(/\/api\/expenses\/(exp_[a-zA-Z0-9]+)$/);
+    const expenseMatch = url.match(/\/api\/expenses\/([^/]+)$/);
     if (expenseMatch) {
       const expenseId = expenseMatch[1];
       const expenses = JSON.parse(localStorage.getItem("car_expenses") || "[]");
-      const filtered = expenses.filter(exp => exp._id !== expenseId);
+      const filtered = expenses.filter(exp => String(exp._id) !== String(expenseId));
       if (filtered.length === expenses.length) {
         throwAxiosError("Expense not found");
       }
@@ -214,11 +214,11 @@ const localApi = {
     }
 
     // Delete category endpoint: /api/categories/:id
-    const categoryMatch = url.match(/\/api\/categories\/(cat_[a-zA-Z0-9]+)$/);
+    const categoryMatch = url.match(/\/api\/categories\/([^/]+)$/);
     if (categoryMatch) {
       const categoryId = categoryMatch[1];
       const categories = JSON.parse(localStorage.getItem("car_categories") || "[]");
-      const filtered = categories.filter(cat => cat._id !== categoryId);
+      const filtered = categories.filter(cat => String(cat._id) !== String(categoryId));
       if (filtered.length === categories.length) {
         throwAxiosError("Category not found");
       }
