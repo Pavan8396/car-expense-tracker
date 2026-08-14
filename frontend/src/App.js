@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useRef } from "react";
+import axios from "./api";
+import { App as CapApp } from "@capacitor/app";
 import AddExpense from "./AddExpense";
 import ExpenseChart from "./ExpenseChart";
 import EditExpense from "./EditExpense";
@@ -14,11 +15,12 @@ import Papa from "papaparse";
 import { formatDate, formatAmount, getDateRangeShortcut, calculateStats } from "./utils";
 import "./App.css";
 
-import { FaGasPump, FaCarCrash, FaTools, FaParking, FaCreditCard, FaShieldAlt } from "react-icons/fa";
+import { FaGasPump, FaCarCrash, FaTools, FaParking, FaCreditCard, FaShieldAlt, FaChartPie, FaList, FaPlus, FaCog } from "react-icons/fa";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function App() {
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [expenses, setExpenses] = useState([]);
   const [editingExpense, setEditingExpense] = useState(null);
   const [toast, setToast] = useState(null);
@@ -38,10 +40,210 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Backup and Restore
+  const fileInputRef = useRef(null);
+  const [importModal, setImportModal] = useState(null);
+
+  // Export Backup
+  const handleExportBackup = () => {
+    try {
+      const expensesData = localStorage.getItem("car_expenses") || "[]";
+      const categoriesData = localStorage.getItem("car_categories") || "[]";
+
+      const backupData = {
+        version: "1.0",
+        expenses: JSON.parse(expensesData),
+        categories: JSON.parse(categoriesData),
+        exportedAt: new Date().toISOString()
+      };
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      const today = new Date();
+      const dateString = today.toISOString().split("T")[0];
+      saveAs(blob, `car-expense-backup-${dateString}.json`);
+      showToast("Backup exported successfully", "success");
+    } catch (err) {
+      console.error("Export backup error:", err);
+      showToast("Failed to export backup", "error");
+    }
+  };
+
+  // File Import handler
+  const handleFileImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+
+        let validatedExpenses = [];
+        let validatedCategories = [];
+        let isMigration = false;
+
+        if (data && typeof data === "object" && !Array.isArray(data)) {
+          if (Array.isArray(data.expenses)) {
+            validatedExpenses = data.expenses;
+          }
+          if (Array.isArray(data.categories)) {
+            validatedCategories = data.categories;
+          }
+        } else if (Array.isArray(data)) {
+          // Check if it looks like an array of expenses
+          const looksLikeExpenses = data.every(item => item && (item.category || item.amount || item.date));
+          if (looksLikeExpenses) {
+            validatedExpenses = data;
+            isMigration = true;
+          } else {
+            throw new Error("Invalid array structure. Not recognized as expenses list.");
+          }
+        } else {
+          throw new Error("Invalid file format.");
+        }
+
+        if (validatedExpenses.length === 0 && validatedCategories.length === 0) {
+          showToast("No valid data found in backup file.", "error");
+          return;
+        }
+
+        setImportModal({
+          expenses: validatedExpenses,
+          categories: validatedCategories,
+          isMigration
+        });
+      } catch (err) {
+        console.error("Import backup parsing error:", err);
+        showToast("Invalid JSON backup: " + err.message, "error");
+      } finally {
+        e.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Perform the actual Restore/Import
+  const confirmImport = () => {
+    if (!importModal) return;
+
+    try {
+      // 1. Create automatic backup of current state before overwriting
+      const currentExpenses = localStorage.getItem("car_expenses") || "[]";
+      const currentCategories = localStorage.getItem("car_categories") || "[]";
+      localStorage.setItem("car_expenses_backup_pre_import", JSON.stringify({
+        expenses: JSON.parse(currentExpenses),
+        categories: JSON.parse(currentCategories),
+        timestamp: new Date().toISOString()
+      }));
+
+      // 2. Perform restore/migration
+      if (importModal.isMigration) {
+        const mappedExpenses = importModal.expenses.map(exp => {
+          let id = exp._id;
+          if (id && typeof id === "object" && id.$oid) id = id.$oid;
+          if (!id) id = `exp_${Math.random().toString(36).substring(2, 11)}`;
+          return {
+            _id: id,
+            category: exp.category || "Other",
+            amount: Number(exp.amount) || 0,
+            date: exp.date ? exp.date.split("T")[0] : new Date().toISOString().split("T")[0],
+            notes: exp.notes || "",
+            createdAt: exp.createdAt || new Date().toISOString()
+          };
+        });
+
+        localStorage.setItem("car_expenses", JSON.stringify(mappedExpenses));
+        // Keep existing categories or reset to defaults
+        if (!localStorage.getItem("car_categories") || JSON.parse(localStorage.getItem("car_categories")).length === 0) {
+          const defaultCats = ["EMI", "Fuel", "Insurance", "Maintenance", "Parking", "Accessories"].map(name => ({
+            _id: `cat_${Math.random().toString(36).substring(2, 11)}`,
+            name,
+            createdAt: new Date().toISOString()
+          }));
+          localStorage.setItem("car_categories", JSON.stringify(defaultCats));
+        }
+        showToast("MongoDB expenses imported successfully!", "success");
+      } else {
+        const mappedExpenses = importModal.expenses.map(exp => {
+          let id = exp._id;
+          if (id && typeof id === "object" && id.$oid) id = id.$oid;
+          if (!id) id = `exp_${Math.random().toString(36).substring(2, 11)}`;
+          return {
+            _id: id,
+            category: exp.category || "Other",
+            amount: Number(exp.amount) || 0,
+            date: exp.date ? exp.date.split("T")[0] : new Date().toISOString().split("T")[0],
+            notes: exp.notes || "",
+            createdAt: exp.createdAt || new Date().toISOString()
+          };
+        });
+
+        const mappedCategories = importModal.categories.map(cat => {
+          let id = cat._id;
+          if (id && typeof id === "object" && id.$oid) id = id.$oid;
+          if (!id) id = `cat_${Math.random().toString(36).substring(2, 11)}`;
+          return {
+            _id: id,
+            name: cat.name || "Custom",
+            createdAt: cat.createdAt || new Date().toISOString()
+          };
+        });
+
+        localStorage.setItem("car_expenses", JSON.stringify(mappedExpenses));
+        localStorage.setItem("car_categories", JSON.stringify(mappedCategories));
+        showToast("Backup restored successfully!", "success");
+      }
+
+      setImportModal(null);
+      fetchExpenses();
+      fetchCategories();
+    } catch (err) {
+      console.error("Error restoring backup:", err);
+      showToast("Failed to restore backup", "error");
+    }
+  };
+
   // Reset page to 1 when filters or sorting change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filterCategory, startDate, endDate, sortConfig]);
+
+  // Handle Android Back Button
+  useEffect(() => {
+    let backButtonListener;
+
+    const setupBackButton = async () => {
+      try {
+        if (window.Capacitor && window.Capacitor.isPluginAvailable("App")) {
+          backButtonListener = await CapApp.addListener("backButton", () => {
+            // If any modal is open, close it!
+            if (deleteModal) {
+              setDeleteModal(null);
+            } else if (editingExpense) {
+              setEditingExpense(null);
+            } else if (categoryManagerOpen) {
+              setCategoryManagerOpen(false);
+            } else if (importModal) {
+              setImportModal(null);
+            } else {
+              // Otherwise, minimize or exit the app
+              CapApp.exitApp();
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Capacitor App plugin backButton listener not initialized:", err);
+      }
+    };
+
+    setupBackButton();
+
+    return () => {
+      if (backButtonListener && typeof backButtonListener.remove === "function") {
+        backButtonListener.remove();
+      }
+    };
+  }, [deleteModal, editingExpense, categoryManagerOpen, importModal]);
 
   // Fetch all expenses
   const fetchExpenses = () => {
@@ -252,6 +454,17 @@ function App() {
         />
       )}
 
+      {/* Import Confirmation Modal */}
+      {importModal && (
+        <Modal
+          title="Confirm Backup Restore"
+          message={`Are you sure you want to restore this backup? Doing so will COMPLETELY OVERWRITE your current expenses and categories. A safety restore point will be saved to your device's memory before overwriting, but proceed with caution.`}
+          type="warning"
+          onConfirm={confirmImport}
+          onCancel={() => setImportModal(null)}
+        />
+      )}
+
       {/* Category Manager Modal */}
       <CategoryManager
         isOpen={categoryManagerOpen}
@@ -262,248 +475,431 @@ function App() {
         onCategoriesUpdate={fetchCategories}
       />
 
-      {/* Split Panels: Add Expense & Filters */}
-      <div className="panels-container">
-        <div className="panel-card add-expense-card">
-          <h2>➕ Add New Expense</h2>
-          <AddExpense onAdd={fetchExpenses} showToast={showToast} categories={categories} />
-        </div>
-
-        <div className="panel-card filters-card">
-          <h2>🔍 Filters & Search</h2>
-          <div className="filters">
-            <input
-              type="text"
-              placeholder="Search by category, notes, or amount"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-              aria-label="Search expenses"
-            />
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              aria-label="Filter by category"
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat._id} value={cat.name}>{cat.name}</option>
-              ))}
-            </select>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              aria-label="Filter by start date"
-            />
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              aria-label="Filter by end date"
-            />
-            <button onClick={handleExportCSV} aria-label="Download CSV export">Download CSV</button>
-            <button
-              onClick={() => setCategoryManagerOpen(true)}
-              className="btn-manage-categories"
-              aria-label="Manage categories"
-            >
-              ⚙️ Categories
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Date Shortcuts */}
-      <div className="date-shortcuts">
-        <span className="shortcuts-label">Quick Filters:</span>
-        <button onClick={() => applyDateShortcut("today")} className="shortcut-btn">Today</button>
-        <button onClick={() => applyDateShortcut("week")} className="shortcut-btn">Last 7 Days</button>
-        <button onClick={() => applyDateShortcut("month")} className="shortcut-btn">This Month</button>
-        <button onClick={() => applyDateShortcut("30days")} className="shortcut-btn">Last 30 Days</button>
-        <button onClick={() => applyDateShortcut("year")} className="shortcut-btn">This Year</button>
-        <button 
-          onClick={() => {
-            setStartDate("");
-            setEndDate("");
-          }} 
-          className="shortcut-btn clear"
+      {/* Navigation Tabs Header */}
+      <nav className="top-tab-bar" aria-label="Main Navigation">
+        <button
+          className={`tab-item ${activeTab === "dashboard" ? "active" : ""}`}
+          onClick={() => setActiveTab("dashboard")}
         >
-          Clear
+          <FaChartPie /> <span>Dashboard</span>
         </button>
-      </div>
+        <button
+          className={`tab-item ${activeTab === "expenses" ? "active" : ""}`}
+          onClick={() => setActiveTab("expenses")}
+        >
+          <FaList /> <span>Expenses</span>
+        </button>
+        <button
+          className={`tab-item ${activeTab === "add" ? "active" : ""}`}
+          onClick={() => setActiveTab("add")}
+        >
+          <FaPlus /> <span>Add Expense</span>
+        </button>
+        <button
+          className={`tab-item ${activeTab === "tools" ? "active" : ""}`}
+          onClick={() => setActiveTab("tools")}
+        >
+          <FaCog /> <span>Settings</span>
+        </button>
+      </nav>
 
-      {/* Summary bar with statistics */}
-      <div className="summary-bar">
-        <div>
-          <div className="summary-label">Total Expenses</div>
-          <div className="summary-value">{formatAmount(stats.total)}</div>
-        </div>
-        <div>
-          <div className="summary-label">Average</div>
-          <div className="summary-value">{formatAmount(stats.average)}</div>
-        </div>
-        <div>
-          <div className="summary-label">Highest</div>
-          <div className="summary-value">{formatAmount(stats.highest)}</div>
-        </div>
-        <div>
-          <div className="summary-label">Count</div>
-          <div className="summary-value">{stats.count}</div>
-        </div>
-        <div>
-          <div className="summary-label">This Month</div>
-          <div className="summary-value">{formatAmount(monthlyTotal)}</div>
-        </div>
-      </div>
+      {/* Main Tab Views */}
+      <div className="tab-content">
+        {/* TAB 1: DASHBOARD & CHARTS */}
+        {activeTab === "dashboard" && (
+          <div className="tab-pane">
+            {/* Summary bar with statistics */}
+            <div className="summary-bar">
+              <div>
+                <div className="summary-label">Total Expenses</div>
+                <div className="summary-value">{formatAmount(stats.total)}</div>
+              </div>
+              <div>
+                <div className="summary-label">Average</div>
+                <div className="summary-value">{formatAmount(stats.average)}</div>
+              </div>
+              <div>
+                <div className="summary-label">Highest</div>
+                <div className="summary-value">{formatAmount(stats.highest)}</div>
+              </div>
+              <div>
+                <div className="summary-label">Count</div>
+                <div className="summary-value">{stats.count}</div>
+              </div>
+              <div>
+                <div className="summary-label">This Month</div>
+                <div className="summary-value">{formatAmount(monthlyTotal)}</div>
+              </div>
+            </div>
 
-      {/* Quick Stats */}
-      <QuickStats expenses={expenses.filter(e => new Date(e.date).toISOString().slice(0, 7) === currentMonthKey)} previousMonthExpenses={previousMonthExpenses} />
+            {/* Quick Stats */}
+            <QuickStats expenses={expenses.filter(e => new Date(e.date).toISOString().slice(0, 7) === currentMonthKey)} previousMonthExpenses={previousMonthExpenses} />
 
-      {/* Charts side by side */}
-      {loading ? (
-        <Loading />
-      ) : sortedExpenses.length > 0 ? (
-        <ExpenseChart expenses={sortedExpenses} allExpenses={expenses} />
-      ) : (
-        <div className="empty-state">
-          <p>📊 No expense data to display</p>
-          <small>Add your first expense to see charts</small>
-        </div>
-      )}
+            {/* Charts side by side */}
+            {loading ? (
+              <Loading />
+            ) : sortedExpenses.length > 0 ? (
+              <ExpenseChart expenses={sortedExpenses} allExpenses={expenses} />
+            ) : (
+              <div className="empty-state">
+                <p>📊 No expense data to display</p>
+                <small>Add your first expense to see charts</small>
+              </div>
+            )}
 
-      {/* Expense List */}
-      <h2>Expense List</h2>
-      {loading ? (
-        <Loading />
-      ) : editingExpense ? (
-        <EditExpense
-          expense={editingExpense}
-          onUpdate={() => { setEditingExpense(null); fetchExpenses(); }}
-          onCancel={() => setEditingExpense(null)}
-          showToast={showToast}
-          categories={categories}
-        />
-      ) : sortedExpenses.length === 0 ? (
-        <div className="empty-state">
-          <p>📝 No expenses found</p>
-          <small>{searchTerm || filterCategory || startDate || endDate ? "Try adjusting your filters" : "Add your first expense to get started"}</small>
-        </div>
-      ) : (
-        <>
-          <table className="expense-table">
-            <thead>
-              <tr>
-                <th onClick={() => handleSort("category")} className="sortable">
-                  Category {sortConfig.key === "category" && (sortConfig.direction === "asc" ? "▲" : "▼")}
-                </th>
-                <th onClick={() => handleSort("amount")} className="sortable">
-                  Amount (₹) {sortConfig.key === "amount" && (sortConfig.direction === "asc" ? "▲" : "▼")}
-                </th>
-                <th onClick={() => handleSort("date")} className="sortable">
-                  Date {sortConfig.key === "date" && (sortConfig.direction === "asc" ? "▲" : "▼")}
-                </th>
-                <th>Notes</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedExpenses.map(exp => (
-                <tr key={exp._id}>
-                  <td>
-                    <span className="category-icon">
-                      {categoryIcons[exp.category]?.icon || <FaCreditCard color="#95a5a6" />}
-                    </span>
-                    {exp.category}
-                  </td>
-                  <td className="amount">{formatAmount(exp.amount)}</td>
-                  <td>{formatDate(exp.date)}</td>
-                  <td className="notes">{exp.notes || "-"}</td>
-                  <td className="actions">
-                    <button
-                      onClick={() => handleDuplicate(exp)}
-                      className="btn-duplicate"
-                      aria-label={`Duplicate ${exp.category} expense`}
-                      title="Duplicate this expense"
-                    >
-                      📋
-                    </button>
-                    <button
-                      onClick={() => setEditingExpense(exp)}
-                      className="btn-edit"
-                      aria-label={`Edit ${exp.category} expense`}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(exp)}
-                      className="btn-delete"
-                      aria-label={`Delete ${exp.category} expense`}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan="5">
-                  <strong>Category Subtotals:</strong>{" "}
-                  {Object.entries(categoryTotals)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([cat, amt]) => (
-                      <span key={cat}>{cat}: {formatAmount(amt)} &nbsp;</span>
-                    ))}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+            {/* Monthly Summary Report */}
+            <MonthlySummary expenses={expenses} />
+          </div>
+        )}
 
-          {/* Pagination bar */}
-          <div className="pagination-container">
-            <span className="page-info">
-              Showing {sortedExpenses.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, sortedExpenses.length)} of {sortedExpenses.length} expenses
-            </span>
-            <div className="pagination-controls">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="pagination-btn"
-                aria-label="Previous page"
-              >
-                Previous
-              </button>
-              <span className="page-info">Page {currentPage} of {totalPages}</span>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="pagination-btn"
-                aria-label="Next page"
-              >
-                Next
-              </button>
-              <label className="page-info">
-                Show:
+        {/* TAB 2: EXPENSE LIST & FILTERS */}
+        {activeTab === "expenses" && (
+          <div className="tab-pane">
+            <div className="panel-card filters-card" style={{ marginBottom: "20px" }}>
+              <h2>🔍 Filters & Search</h2>
+              <div className="filters">
+                <input
+                  type="text"
+                  placeholder="Search category, notes, amount"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                  aria-label="Search expenses"
+                />
                 <select
-                  value={itemsPerPage}
-                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                  className="items-per-page-select"
-                  aria-label="Items per page"
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  aria-label="Filter by category"
                 >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
+                  <option value="">All Categories</option>
+                  {categories.map(cat => (
+                    <option key={cat._id} value={cat.name}>{cat.name}</option>
+                  ))}
                 </select>
-              </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  aria-label="Filter by start date"
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  aria-label="Filter by end date"
+                />
+              </div>
+
+              {/* Date Shortcuts */}
+              <div className="date-shortcuts" style={{ marginTop: "12px" }}>
+                <span className="shortcuts-label">Quick:</span>
+                <button onClick={() => applyDateShortcut("today")} className="shortcut-btn">Today</button>
+                <button onClick={() => applyDateShortcut("week")} className="shortcut-btn">7 Days</button>
+                <button onClick={() => applyDateShortcut("month")} className="shortcut-btn">This Month</button>
+                <button onClick={() => applyDateShortcut("30days")} className="shortcut-btn">30 Days</button>
+                <button onClick={() => applyDateShortcut("year")} className="shortcut-btn">This Year</button>
+                <button
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  className="shortcut-btn clear"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <h2>Expense List ({sortedExpenses.length})</h2>
+            {loading ? (
+              <Loading />
+            ) : editingExpense ? (
+              <EditExpense
+                expense={editingExpense}
+                onUpdate={() => { setEditingExpense(null); fetchExpenses(); }}
+                onCancel={() => setEditingExpense(null)}
+                showToast={showToast}
+                categories={categories}
+              />
+            ) : sortedExpenses.length === 0 ? (
+              <div className="empty-state">
+                <p>📝 No expenses found</p>
+                <small>{searchTerm || filterCategory || startDate || endDate ? "Try adjusting your filters" : "Add your first expense to get started"}</small>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table View */}
+                <div className="desktop-table-container">
+                  <table className="expense-table">
+                    <thead>
+                      <tr>
+                        <th onClick={() => handleSort("category")} className="sortable">
+                          Category {sortConfig.key === "category" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th onClick={() => handleSort("amount")} className="sortable">
+                          Amount (₹) {sortConfig.key === "amount" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th onClick={() => handleSort("date")} className="sortable">
+                          Date {sortConfig.key === "date" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedExpenses.map(exp => (
+                        <tr key={exp._id}>
+                          <td>
+                            <span className="category-icon">
+                              {categoryIcons[exp.category]?.icon || <FaCreditCard color="#95a5a6" />}
+                            </span>
+                            {exp.category}
+                          </td>
+                          <td className="amount">{formatAmount(exp.amount)}</td>
+                          <td>{formatDate(exp.date)}</td>
+                          <td className="notes">{exp.notes || "-"}</td>
+                          <td className="actions">
+                            <button
+                              onClick={() => handleDuplicate(exp)}
+                              className="btn-duplicate"
+                              aria-label={`Duplicate ${exp.category} expense`}
+                              title="Duplicate this expense"
+                            >
+                              📋
+                            </button>
+                            <button
+                              onClick={() => setEditingExpense(exp)}
+                              className="btn-edit"
+                              aria-label={`Edit ${exp.category} expense`}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(exp)}
+                              className="btn-delete"
+                              aria-label={`Delete ${exp.category} expense`}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan="5">
+                          <strong>Category Subtotals:</strong>{" "}
+                          {Object.entries(categoryTotals)
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([cat, amt]) => (
+                              <span key={cat}>{cat}: {formatAmount(amt)} &nbsp;</span>
+                            ))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Mobile Cards View */}
+                <div className="mobile-cards-container">
+                  <div className="mobile-sort-bar">
+                    <span>Sort by:</span>
+                    <button
+                      className={sortConfig.key === "date" ? "active" : ""}
+                      onClick={() => handleSort("date")}
+                    >
+                      Date {sortConfig.key === "date" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </button>
+                    <button
+                      className={sortConfig.key === "amount" ? "active" : ""}
+                      onClick={() => handleSort("amount")}
+                    >
+                      Amount {sortConfig.key === "amount" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </button>
+                    <button
+                      className={sortConfig.key === "category" ? "active" : ""}
+                      onClick={() => handleSort("category")}
+                    >
+                      Category {sortConfig.key === "category" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </button>
+                  </div>
+
+                  {paginatedExpenses.map(exp => (
+                    <div key={exp._id} className="expense-card">
+                      <div className="card-header">
+                        <div className="card-category">
+                          <span className="card-icon">
+                            {categoryIcons[exp.category]?.icon || <FaCreditCard color="#95a5a6" />}
+                          </span>
+                          <span className="category-name">{exp.category}</span>
+                        </div>
+                        <div className="card-amount">{formatAmount(exp.amount)}</div>
+                      </div>
+                      <div className="card-body">
+                        <div className="card-date">📅 {formatDate(exp.date)}</div>
+                        {exp.notes && <div className="card-notes">📝 {exp.notes}</div>}
+                      </div>
+                      <div className="card-actions">
+                        <button
+                          onClick={() => handleDuplicate(exp)}
+                          className="btn-duplicate"
+                          aria-label={`Duplicate ${exp.category}`}
+                        >
+                          📋 Duplicate
+                        </button>
+                        <button
+                          onClick={() => setEditingExpense(exp)}
+                          className="btn-edit"
+                          aria-label={`Edit ${exp.category}`}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(exp)}
+                          className="btn-delete"
+                          aria-label={`Delete ${exp.category}`}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination bar */}
+                <div className="pagination-container">
+                  <span className="page-info">
+                    Showing {sortedExpenses.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, sortedExpenses.length)} of {sortedExpenses.length}
+                  </span>
+                  <div className="pagination-controls">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="pagination-btn"
+                      aria-label="Previous page"
+                    >
+                      Prev
+                    </button>
+                    <span className="page-info">{currentPage}/{totalPages}</span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="pagination-btn"
+                      aria-label="Next page"
+                    >
+                      Next
+                    </button>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                      className="items-per-page-select"
+                      aria-label="Items per page"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: ADD EXPENSE */}
+        {activeTab === "add" && (
+          <div className="tab-pane">
+            <div className="panel-card add-expense-card">
+              <h2>➕ Add New Expense</h2>
+              <AddExpense
+                onAdd={() => {
+                  fetchExpenses();
+                  setActiveTab("expenses");
+                }}
+                showToast={showToast}
+                categories={categories}
+              />
             </div>
           </div>
-        </>
-      )}
+        )}
 
-      {/* Monthly Summary Report */}
-      <MonthlySummary expenses={expenses} />
+        {/* TAB 4: SETTINGS & TOOLS */}
+        {activeTab === "tools" && (
+          <div className="tab-pane">
+            <div className="panel-card tools-card">
+              <h2>⚙️ App Settings & Data Management</h2>
+              <div className="tools-grid">
+                <div className="tool-item">
+                  <h3>Category Management</h3>
+                  <p>Customize expense categories</p>
+                  <button
+                    onClick={() => setCategoryManagerOpen(true)}
+                    className="btn-manage-categories"
+                    aria-label="Manage categories"
+                  >
+                    ⚙️ Manage Categories
+                  </button>
+                </div>
+
+                <div className="tool-item">
+                  <h3>Export Data</h3>
+                  <p>Export expenses to CSV spreadsheet or JSON backup</p>
+                  <div className="button-group">
+                    <button onClick={handleExportCSV} aria-label="Download CSV export">📊 Download CSV</button>
+                    <button onClick={handleExportBackup} className="btn-export-backup" style={{ backgroundColor: "#27ae60", color: "#fff" }}>📤 Export JSON Backup</button>
+                  </div>
+                </div>
+
+                <div className="tool-item">
+                  <h3>Restore / Import Backup</h3>
+                  <p>Restore your saved backup file (.json)</p>
+                  <button onClick={() => fileInputRef.current.click()} className="btn-import-backup" style={{ backgroundColor: "#2980b9", color: "#fff" }}>📥 Import JSON Backup</button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    style={{ display: "none" }}
+                    accept=".json"
+                    onChange={handleFileImport}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="bottom-nav-bar" aria-label="Mobile Navigation">
+        <button
+          className={`bottom-nav-item ${activeTab === "dashboard" ? "active" : ""}`}
+          onClick={() => setActiveTab("dashboard")}
+        >
+          <FaChartPie />
+          <span>Dashboard</span>
+        </button>
+        <button
+          className={`bottom-nav-item ${activeTab === "expenses" ? "active" : ""}`}
+          onClick={() => setActiveTab("expenses")}
+        >
+          <FaList />
+          <span>Expenses</span>
+        </button>
+        <button
+          className={`bottom-nav-item ${activeTab === "add" ? "active" : ""}`}
+          onClick={() => setActiveTab("add")}
+        >
+          <div className="fab-plus"><FaPlus /></div>
+          <span>Add</span>
+        </button>
+        <button
+          className={`bottom-nav-item ${activeTab === "tools" ? "active" : ""}`}
+          onClick={() => setActiveTab("tools")}
+        >
+          <FaCog />
+          <span>Settings</span>
+        </button>
+      </nav>
     </div>
   );
 }

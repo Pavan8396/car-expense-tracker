@@ -69,9 +69,16 @@ function ExpenseChart({ expenses, allExpenses }) {
     ],
   };
 
+  const isMobile = window.innerWidth <= 768;
+
   const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { position: "right" },
+      legend: {
+        position: isMobile ? "bottom" : "right",
+        labels: { boxWidth: 12, padding: 10, font: { size: 12 } }
+      },
       datalabels: {
         color: "#fff",
         formatter: (value, ctx) => {
@@ -143,8 +150,14 @@ function ExpenseChart({ expenses, allExpenses }) {
   };
 
   const lineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { display: true },
+      legend: {
+        display: true,
+        position: isMobile ? "bottom" : "top",
+        labels: { boxWidth: 12, padding: 8, font: { size: 12 } }
+      },
       tooltip: {
         callbacks: { label: (context) => `₹${context.raw}` },
       },
@@ -156,22 +169,26 @@ function ExpenseChart({ expenses, allExpenses }) {
     <div className="charts-container">
       <div className="chart-box">
         <h2>Category Breakdown</h2>
-        <Pie data={pieData} options={pieOptions} />
+        <div className="chart-canvas-container">
+          <Pie data={pieData} options={pieOptions} />
+        </div>
       </div>
 
       <div className="chart-box">
         <h2>Monthly Trend</h2>
         <div style={{ textAlign: "right", marginBottom: "10px" }}>
-          <label>
+          <label style={{ fontSize: "13px", color: "#475569" }}>
             <input
               type="checkbox"
               checked={showMovingAverage}
               onChange={() => setShowMovingAverage(!showMovingAverage)}
             />{" "}
-              Show Moving Average
+              Moving Average
           </label>
         </div>
-        <Line data={lineData} options={lineOptions} />
+        <div className="chart-canvas-container">
+          <Line data={lineData} options={lineOptions} />
+        </div>
         <div style={{ textAlign: "right", marginTop: "10px" }}>
           <button
             onClick={() => exportChartData(categoryTotals, monthlyTotals)}
@@ -181,10 +198,11 @@ function ExpenseChart({ expenses, allExpenses }) {
               border: "none",
               background: "#2ecc71",
               color: "#fff",
-              cursor: "pointer"
+              cursor: "pointer",
+              fontSize: "12px"
             }}
           >
-            Download Chart Data (CSV)
+            Export CSV
           </button>
         </div>
       </div>
