@@ -391,7 +391,9 @@ function App() {
             {sortedExpenses.map(exp => (
               <tr key={exp._id}>
                 <td>
-                  <span className="category-icon">{categoryIcons[exp.category]?.icon}</span>
+                  <span className="category-icon">
+                    {categoryIcons[exp.category]?.icon || <FaCreditCard color="#95a5a6" />}
+                  </span>
                   {exp.category}
                 </td>
                 <td className="amount">{formatAmount(exp.amount)}</td>
