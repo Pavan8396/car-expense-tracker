@@ -47,13 +47,35 @@ h3 {
   margin-bottom: 8px;
 }
 
-/* Top bar: AddExpense + Filters side by side */
-.top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+/* Card panels for Add Expense and Filters */
+.panels-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
+}
+
+.panel-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-card h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-top: 0;
+  margin-bottom: 15px;
+  border-bottom: 1.5px solid #f1f5f9;
+  padding-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .filters {
@@ -65,9 +87,30 @@ h3 {
 .filters select,
 .filters input[type="date"],
 .search-input {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: all 0.2s ease-in-out;
+  outline: none;
+}
+
+.filters select:hover,
+.filters input[type="date"]:hover,
+.search-input:hover {
+  border-color: #cbd5e1;
+  background-color: #f1f5f9;
+}
+
+.filters select:focus,
+.filters input[type="date"]:focus,
+.search-input:focus {
+  border-color: #36A2EB;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(54, 162, 235, 0.15);
 }
 
 .filters button {
@@ -218,15 +261,32 @@ h3 {
   margin-bottom: 20px;
 }
 
-.add-expense-form select,
-.add-expense-form input,
 .edit-expense-form select,
 .edit-expense-form input {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: all 0.2s ease-in-out;
+  outline: none;
   flex: 1;
-  min-width: 150px;
+  min-width: 140px;
+}
+
+.edit-expense-form select:hover,
+.edit-expense-form input:hover {
+  border-color: #cbd5e1;
+  background-color: #f1f5f9;
+}
+
+.edit-expense-form select:focus,
+.edit-expense-form input:focus {
+  border-color: #36A2EB;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(54, 162, 235, 0.15);
 }
 
 .add-expense-form button,
@@ -481,8 +541,8 @@ h3 {
     margin-bottom: 15px;
   }
 
-  .top-bar {
-    flex-direction: column;
+  .panels-container {
+    grid-template-columns: 1fr;
     gap: 15px;
   }
 
@@ -624,4 +684,78 @@ h3 {
   .expense-table tfoot {
     display: none;
   }
+}
+
+/* Pagination Styling */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+  margin-bottom: 25px;
+  padding: 12px 20px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  padding: 8px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #334155;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  outline: none;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: #36A2EB;
+  color: #36A2EB;
+  background-color: #f0f9ff;
+}
+
+.pagination-btn:disabled {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.items-per-page-select {
+  padding: 6px 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #334155;
+  outline: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.items-per-page-select:focus {
+  border-color: #36A2EB;
+  box-shadow: 0 0 0 3px rgba(54, 162, 235, 0.1);
 }
