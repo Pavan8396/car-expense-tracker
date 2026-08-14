@@ -35,6 +35,15 @@ function App() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Reset page to 1 when filters or sorting change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterCategory, startDate, endDate, sortConfig]);
+
   // Fetch all expenses
   const fetchExpenses = () => {
     setLoading(true);
@@ -159,6 +168,13 @@ function App() {
     setSortConfig({ key, direction });
   };
 
+  // Pagination calculation
+  const totalPages = Math.ceil(sortedExpenses.length / itemsPerPage) || 1;
+  const paginatedExpenses = sortedExpenses.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   // ✅ Summary calculations
   const stats = calculateStats(sortedExpenses);
 
@@ -247,48 +263,55 @@ function App() {
         onCategoriesUpdate={fetchCategories}
       />
 
-      {/* Filters + AddExpense aligned */}
-      <div className="top-bar">
-        <AddExpense onAdd={fetchExpenses} showToast={showToast} categories={categories} />
-        <div className="filters">
-          <input
-            type="text"
-            placeholder="Search by category, notes, or amount"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-            aria-label="Search expenses"
-          />
-          <select 
-            value={filterCategory} 
-            onChange={(e) => setFilterCategory(e.target.value)}
-            aria-label="Filter by category"
-          >
-            <option value="">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat._id} value={cat.name}>{cat.name}</option>
-            ))}
-          </select>
-          <input 
-            type="date" 
-            value={startDate} 
-            onChange={(e) => setStartDate(e.target.value)}
-            aria-label="Filter by start date"
-          />
-          <input 
-            type="date" 
-            value={endDate} 
-            onChange={(e) => setEndDate(e.target.value)}
-            aria-label="Filter by end date"
-          />
-          <button onClick={handleExportCSV} aria-label="Download CSV export">Download CSV</button>
-          <button 
-            onClick={() => setCategoryManagerOpen(true)}
-            className="btn-manage-categories"
-            aria-label="Manage categories"
-          >
-            ⚙️ Categories
-          </button>
+      {/* Split Panels: Add Expense & Filters */}
+      <div className="panels-container">
+        <div className="panel-card add-expense-card">
+          <h2>➕ Add New Expense</h2>
+          <AddExpense onAdd={fetchExpenses} showToast={showToast} categories={categories} />
+        </div>
+
+        <div className="panel-card filters-card">
+          <h2>🔍 Filters & Search</h2>
+          <div className="filters">
+            <input
+              type="text"
+              placeholder="Search by category, notes, or amount"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+              aria-label="Search expenses"
+            />
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              aria-label="Filter by category"
+            >
+              <option value="">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat._id} value={cat.name}>{cat.name}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              aria-label="Filter by start date"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              aria-label="Filter by end date"
+            />
+            <button onClick={handleExportCSV} aria-label="Download CSV export">Download CSV</button>
+            <button
+              onClick={() => setCategoryManagerOpen(true)}
+              className="btn-manage-categories"
+              aria-label="Manage categories"
+            >
+              ⚙️ Categories
+            </button>
+          </div>
         </div>
       </div>
 
@@ -371,74 +394,116 @@ function App() {
           <small>{searchTerm || filterCategory || startDate || endDate ? "Try adjusting your filters" : "Add your first expense to get started"}</small>
         </div>
       ) : (
-        <table className="expense-table">
-          <thead>
-            <tr>
-              <th onClick={() => handleSort("category")} className="sortable">
-                Category {sortConfig.key === "category" && (sortConfig.direction === "asc" ? "▲" : "▼")}
-              </th>
-              <th onClick={() => handleSort("amount")} className="sortable">
-                Amount (₹) {sortConfig.key === "amount" && (sortConfig.direction === "asc" ? "▲" : "▼")}
-              </th>
-              <th onClick={() => handleSort("date")} className="sortable">
-                Date {sortConfig.key === "date" && (sortConfig.direction === "asc" ? "▲" : "▼")}
-              </th>
-              <th>Notes</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedExpenses.map(exp => (
-              <tr key={exp._id}>
-                <td>
-                  <span className="category-icon">
-                    {categoryIcons[exp.category]?.icon || <FaCreditCard color="#95a5a6" />}
-                  </span>
-                  {exp.category}
-                </td>
-                <td className="amount">{formatAmount(exp.amount)}</td>
-                <td>{formatDate(exp.date)}</td>
-                <td className="notes">{exp.notes || "-"}</td>
-                <td className="actions">
-                  <button 
-                    onClick={() => handleDuplicate(exp)}
-                    className="btn-duplicate"
-                    aria-label={`Duplicate ${exp.category} expense`}
-                    title="Duplicate this expense"
-                  >
-                    📋
-                  </button>
-                  <button 
-                    onClick={() => setEditingExpense(exp)}
-                    className="btn-edit"
-                    aria-label={`Edit ${exp.category} expense`}
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteClick(exp)}
-                    className="btn-delete"
-                    aria-label={`Delete ${exp.category} expense`}
-                  >
-                    Delete
-                  </button>
+        <>
+          <table className="expense-table">
+            <thead>
+              <tr>
+                <th onClick={() => handleSort("category")} className="sortable">
+                  Category {sortConfig.key === "category" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                </th>
+                <th onClick={() => handleSort("amount")} className="sortable">
+                  Amount (₹) {sortConfig.key === "amount" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                </th>
+                <th onClick={() => handleSort("date")} className="sortable">
+                  Date {sortConfig.key === "date" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                </th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedExpenses.map(exp => (
+                <tr key={exp._id}>
+                  <td>
+                    <span className="category-icon">
+                      {categoryIcons[exp.category]?.icon || <FaCreditCard color="#95a5a6" />}
+                    </span>
+                    {exp.category}
+                  </td>
+                  <td className="amount">{formatAmount(exp.amount)}</td>
+                  <td>{formatDate(exp.date)}</td>
+                  <td className="notes">{exp.notes || "-"}</td>
+                  <td className="actions">
+                    <button
+                      onClick={() => handleDuplicate(exp)}
+                      className="btn-duplicate"
+                      aria-label={`Duplicate ${exp.category} expense`}
+                      title="Duplicate this expense"
+                    >
+                      📋
+                    </button>
+                    <button
+                      onClick={() => setEditingExpense(exp)}
+                      className="btn-edit"
+                      aria-label={`Edit ${exp.category} expense`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick(exp)}
+                      className="btn-delete"
+                      aria-label={`Delete ${exp.category} expense`}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan="5">
+                  <strong>Category Subtotals:</strong>{" "}
+                  {Object.entries(categoryTotals)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([cat, amt]) => (
+                      <span key={cat}>{cat}: {formatAmount(amt)} &nbsp;</span>
+                    ))}
                 </td>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan="5">
-                <strong>Category Subtotals:</strong>{" "}
-                {Object.entries(categoryTotals)
-                  .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([cat, amt]) => (
-                    <span key={cat}>{cat}: {formatAmount(amt)} &nbsp;</span>
-                  ))}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+            </tfoot>
+          </table>
+
+          {/* Pagination bar */}
+          <div className="pagination-container">
+            <span className="page-info">
+              Showing {sortedExpenses.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, sortedExpenses.length)} of {sortedExpenses.length} expenses
+            </span>
+            <div className="pagination-controls">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="pagination-btn"
+                aria-label="Previous page"
+              >
+                Previous
+              </button>
+              <span className="page-info">Page {currentPage} of {totalPages}</span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="pagination-btn"
+                aria-label="Next page"
+              >
+                Next
+              </button>
+              <label className="page-info">
+                Show:
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  className="items-per-page-select"
+                  aria-label="Items per page"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Monthly Summary Report */}
