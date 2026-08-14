@@ -81,8 +81,8 @@ function MonthlyComparisonChart({ expenses }) {
   };
 
   return (
-    <div className="monthly-comparison-chart">
-      <h3>Month-over-Month Comparison</h3>
+    <div className="chart-box">
+      <h2>Month-over-Month Comparison</h2>
       <div className="chart-wrapper">
         <Bar data={data} options={options} />
       </div>
