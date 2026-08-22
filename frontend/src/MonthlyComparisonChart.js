@@ -77,12 +77,17 @@ function MonthlyComparisonChart({ expenses }) {
       y: {
         beginAtZero: true,
         ticks: {
-          callback: (value) => `₹${value.toLocaleString("en-IN")}`,
-          font: { size: 11 }
+          callback: (value) => `₹${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}`,
+          font: { size: 10 }
         },
       },
       x: {
-        ticks: { font: { size: 11 } }
+        ticks: {
+          font: { size: 10 },
+          maxRotation: 45,
+          minRotation: 0,
+          autoSkip: true,
+        }
       }
     },
   };

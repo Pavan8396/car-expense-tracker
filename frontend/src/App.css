@@ -1,13 +1,20 @@
 /* General layout */
-body {
+html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: #f8fafc;
   margin: 0;
   padding: 0;
   color: #1e293b;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
   /* Safe area padding for mobile notch & home bar */
   padding-top: env(safe-area-inset-top);
   padding-bottom: calc(70px + env(safe-area-inset-bottom));
+}
+
+* {
+  box-sizing: border-box;
 }
 
 /* Screen reader only - for accessibility */
@@ -25,12 +32,14 @@ body {
 
 .container {
   max-width: 1200px;
+  width: 100%;
   margin: 15px auto;
   padding: 20px;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 h1 {
@@ -591,6 +600,46 @@ h3 {
   font-size: 18px;
   font-weight: 700;
   color: #36A2EB;
+}
+
+/* Trend Header & Switch Group */
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.trend-header h2 {
+  margin: 0;
+}
+
+.trend-switch-group {
+  display: flex;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.trend-switch-btn {
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trend-switch-btn.active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 /* Sortable columns */

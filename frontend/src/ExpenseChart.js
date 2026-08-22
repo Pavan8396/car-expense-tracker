@@ -45,6 +45,7 @@ const exportChartData = (categoryTotals, monthlyTotals) => {
 
 function ExpenseChart({ expenses, allExpenses }) {
   const [showMovingAverage, setShowMovingAverage] = useState(true);
+  const [trendView, setTrendView] = useState("monthly"); // "monthly" or "daily"
 
   if (!expenses || expenses.length === 0) {
     return <p>No expenses yet to display charts.</p>;
@@ -98,43 +99,58 @@ function ExpenseChart({ expenses, allExpenses }) {
     },
   };
 
-  // Monthly totals
-  const monthlyTotals = expenses.reduce((acc, exp) => {
-    if (exp.date) {
-      const month = new Date(exp.date).toISOString().slice(0, 7);
-      acc[month] = (acc[month] || 0) + exp.amount;
-    }
-    return acc;
-  }, {});
-  const sortedMonths = Object.keys(monthlyTotals).sort();
+  // Calculate Trend Data based on view mode (monthly vs daily)
+  let trendLabels = [];
+  let trendValues = [];
+  let trendDatasetLabel = "Monthly Expenses";
 
-  const monthlyValues = sortedMonths.map(m => monthlyTotals[m]);
-  const movingAverageValues = calculateMovingAverage(monthlyValues, 3);
+  if (trendView === "monthly") {
+    const monthlyTotals = expenses.reduce((acc, exp) => {
+      if (exp.date) {
+        const month = new Date(exp.date).toISOString().slice(0, 7);
+        acc[month] = (acc[month] || 0) + exp.amount;
+      }
+      return acc;
+    }, {});
+    const sortedMonths = Object.keys(monthlyTotals).sort();
+    trendLabels = sortedMonths.map(formatMonth);
+    trendValues = sortedMonths.map(m => monthlyTotals[m]);
+    trendDatasetLabel = "Monthly Expenses";
+  } else {
+    // Daily trend
+    const dailyTotals = expenses.reduce((acc, exp) => {
+      if (exp.date) {
+        const dateStr = exp.date.split("T")[0];
+        acc[dateStr] = (acc[dateStr] || 0) + exp.amount;
+      }
+      return acc;
+    }, {});
+    const sortedDays = Object.keys(dailyTotals).sort();
+    trendLabels = sortedDays.map(d => {
+      const parts = d.split("-");
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
+    });
+    trendValues = sortedDays.map(d => dailyTotals[d]);
+    trendDatasetLabel = "Daily Expenses";
+  }
 
-  // Highlight current month
-  const currentMonthKey = new Date().toISOString().slice(0, 7);
-  const pointColors = sortedMonths.map(m =>
-    m === currentMonthKey ? "#e74c3c" : "#36A2EB"
-  );
-  const pointSizes = sortedMonths.map(m =>
-    m === currentMonthKey ? 8 : 5
-  );
+  const movingAverageValues = calculateMovingAverage(trendValues, 3);
 
   const datasets = [
     {
-      label: "Monthly Expenses",
-      data: monthlyValues,
+      label: trendDatasetLabel,
+      data: trendValues,
       fill: false,
       borderColor: "#36A2EB",
       tension: 0.3,
-      pointBackgroundColor: pointColors,
-      pointRadius: pointSizes,
+      pointBackgroundColor: "#36A2EB",
+      pointRadius: 4,
     },
   ];
 
-  if (showMovingAverage) {
+  if (showMovingAverage && trendValues.length > 0) {
     datasets.push({
-      label: "3-Month Moving Avg",
+      label: "3-Period Moving Avg",
       data: movingAverageValues,
       fill: false,
       borderColor: "#FF9F40",
@@ -145,7 +161,7 @@ function ExpenseChart({ expenses, allExpenses }) {
   }
 
   const lineData = {
-    labels: sortedMonths.map(formatMonth),
+    labels: trendLabels,
     datasets,
   };
 
@@ -175,35 +191,38 @@ function ExpenseChart({ expenses, allExpenses }) {
       </div>
 
       <div className="chart-box">
-        <h2>Monthly Trend</h2>
+        <div className="trend-header">
+          <h2>Expense Trend</h2>
+          <div className="trend-controls">
+            <div className="trend-switch-group">
+              <button
+                className={`trend-switch-btn ${trendView === "monthly" ? "active" : ""}`}
+                onClick={() => setTrendView("monthly")}
+              >
+                Monthly
+              </button>
+              <button
+                className={`trend-switch-btn ${trendView === "daily" ? "active" : ""}`}
+                onClick={() => setTrendView("daily")}
+              >
+                Daily
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div style={{ textAlign: "right", marginBottom: "10px" }}>
-          <label style={{ fontSize: "13px", color: "#475569" }}>
+          <label style={{ fontSize: "12px", color: "#475569" }}>
             <input
               type="checkbox"
               checked={showMovingAverage}
               onChange={() => setShowMovingAverage(!showMovingAverage)}
             />{" "}
-              Moving Average
+              Moving Avg
           </label>
         </div>
         <div className="chart-canvas-container">
           <Line data={lineData} options={lineOptions} />
-        </div>
-        <div style={{ textAlign: "right", marginTop: "10px" }}>
-          <button
-            onClick={() => exportChartData(categoryTotals, monthlyTotals)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: "6px",
-              border: "none",
-              background: "#2ecc71",
-              color: "#fff",
-              cursor: "pointer",
-              fontSize: "12px"
-            }}
-          >
-            Export CSV
-          </button>
         </div>
       </div>
 

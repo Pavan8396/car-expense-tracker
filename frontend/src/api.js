@@ -22,6 +22,9 @@ const initDb = () => {
   if (!localStorage.getItem("car_expenses")) {
     localStorage.setItem("car_expenses", JSON.stringify([]));
   }
+  if (!localStorage.getItem("car_odometer_logs")) {
+    localStorage.setItem("car_odometer_logs", JSON.stringify([]));
+  }
 };
 
 // Auto backup helper
@@ -29,9 +32,11 @@ export const saveAutoBackup = () => {
   try {
     const expenses = localStorage.getItem("car_expenses") || "[]";
     const categories = localStorage.getItem("car_categories") || "[]";
+    const odoLogs = localStorage.getItem("car_odometer_logs") || "[]";
     localStorage.setItem("car_expenses_backup_auto", JSON.stringify({
       expenses: JSON.parse(expenses),
       categories: JSON.parse(categories),
+      odometerLogs: JSON.parse(odoLogs),
       timestamp: new Date().toISOString()
     }));
   } catch (err) {
@@ -74,6 +79,19 @@ const localApi = {
     if (url.endsWith("/api/categories")) {
       const categories = JSON.parse(localStorage.getItem("car_categories") || "[]");
       const sorted = categories.sort((a, b) => a.name.localeCompare(b.name));
+      return { data: sorted };
+    }
+
+    if (url.endsWith("/api/odometer")) {
+      const logs = JSON.parse(localStorage.getItem("car_odometer_logs") || "[]");
+      const sorted = logs.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        if (dateA.getTime() !== dateB.getTime()) {
+          return dateB.getTime() - dateA.getTime();
+        }
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      });
       return { data: sorted };
     }
 
@@ -130,6 +148,34 @@ const localApi = {
       localStorage.setItem("car_categories", JSON.stringify(categories));
       saveAutoBackup();
       return { data: newCategory };
+    }
+
+    if (url.endsWith("/api/odometer")) {
+      const { date, startKm, endKm, notes } = data;
+      if (!date || startKm === undefined || endKm === undefined) {
+        throwAxiosError("Date, Start KM, and End KM are required");
+      }
+      const startNum = Number(startKm);
+      const endNum = Number(endKm);
+      if (endNum < startNum) {
+        throwAxiosError("End KM cannot be less than Start KM");
+      }
+
+      const logs = JSON.parse(localStorage.getItem("car_odometer_logs") || "[]");
+      const newLog = {
+        _id: generateId("odo"),
+        date,
+        startKm: startNum,
+        endKm: endNum,
+        distance: endNum - startNum,
+        notes: notes || "",
+        createdAt: new Date().toISOString()
+      };
+
+      logs.push(newLog);
+      localStorage.setItem("car_odometer_logs", JSON.stringify(logs));
+      saveAutoBackup();
+      return { data: newLog };
     }
 
     // Duplicate expense endpoint: /api/expenses/:id/duplicate
@@ -225,6 +271,20 @@ const localApi = {
       localStorage.setItem("car_categories", JSON.stringify(filtered));
       saveAutoBackup();
       return { data: { message: "Category deleted successfully" } };
+    }
+
+    // Delete odometer log endpoint: /api/odometer/:id
+    const odoMatch = url.match(/\/api\/odometer\/([^/]+)$/);
+    if (odoMatch) {
+      const logId = odoMatch[1];
+      const logs = JSON.parse(localStorage.getItem("car_odometer_logs") || "[]");
+      const filtered = logs.filter(log => String(log._id) !== String(logId));
+      if (filtered.length === logs.length) {
+        throwAxiosError("Odometer log not found");
+      }
+      localStorage.setItem("car_odometer_logs", JSON.stringify(filtered));
+      saveAutoBackup();
+      return { data: { message: "Odometer log deleted successfully" } };
     }
 
     throw new Error(`404 Not Found: DELETE ${url}`);

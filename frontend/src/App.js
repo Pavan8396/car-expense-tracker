@@ -10,18 +10,21 @@ import Loading from "./Loading";
 import CategoryManager from "./CategoryManager";
 import QuickStats from "./QuickStats";
 import MonthlySummary from "./MonthlySummary";
+import OdometerLogger from "./OdometerLogger";
+import DistanceChart from "./DistanceChart";
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
 import { formatDate, formatAmount, getDateRangeShortcut, calculateStats } from "./utils";
 import "./App.css";
 
-import { FaGasPump, FaCarCrash, FaTools, FaParking, FaCreditCard, FaShieldAlt, FaChartPie, FaList, FaPlus, FaCog } from "react-icons/fa";
+import { FaGasPump, FaCarCrash, FaTools, FaParking, FaCreditCard, FaShieldAlt, FaChartPie, FaList, FaPlus, FaCog, FaRoad } from "react-icons/fa";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [expenses, setExpenses] = useState([]);
+  const [odometerLogs, setOdometerLogs] = useState([]);
   const [editingExpense, setEditingExpense] = useState(null);
   const [toast, setToast] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -270,6 +273,16 @@ function App() {
     }
   };
 
+  // Fetch odometer logs
+  const fetchOdometerLogs = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/odometer`);
+      setOdometerLogs(res.data);
+    } catch (err) {
+      console.error("Error fetching odometer logs:", err);
+    }
+  };
+
   const showToast = (message, type = "success") => {
     setToast({ message, type });
   };
@@ -277,6 +290,7 @@ function App() {
   useEffect(() => {
     fetchExpenses();
     fetchCategories();
+    fetchOdometerLogs();
   }, []);
 
   // Delete expense with confirmation
@@ -384,6 +398,12 @@ function App() {
   const monthlyTotal = sortedExpenses
     .filter(exp => new Date(exp.date).toISOString().slice(0, 7) === currentMonthKey)
     .reduce((sum, exp) => sum + exp.amount, 0);
+
+  // Travel KM calculations
+  const totalDistance = odometerLogs.reduce((sum, log) => sum + (log.distance || 0), 0);
+  const monthlyDistance = odometerLogs
+    .filter(log => new Date(log.date).toISOString().slice(0, 7) === currentMonthKey)
+    .reduce((sum, log) => sum + (log.distance || 0), 0);
 
   const currentMonthLabel = `${String(currentMonth.getMonth() + 1).padStart(2, "0")}:${currentMonth.getFullYear()}`;
 
@@ -496,6 +516,12 @@ function App() {
           <FaPlus /> <span>Add Expense</span>
         </button>
         <button
+          className={`tab-item ${activeTab === "odometer" ? "active" : ""}`}
+          onClick={() => setActiveTab("odometer")}
+        >
+          <FaRoad /> <span>Travel KM</span>
+        </button>
+        <button
           className={`tab-item ${activeTab === "tools" ? "active" : ""}`}
           onClick={() => setActiveTab("tools")}
         >
@@ -508,27 +534,27 @@ function App() {
         {/* TAB 1: DASHBOARD & CHARTS */}
         {activeTab === "dashboard" && (
           <div className="tab-pane">
-            {/* Summary bar with statistics */}
+            {/* Summary bar with statistics & Distance KM */}
             <div className="summary-bar">
               <div>
                 <div className="summary-label">Total Expenses</div>
                 <div className="summary-value">{formatAmount(stats.total)}</div>
               </div>
               <div>
-                <div className="summary-label">Average</div>
-                <div className="summary-value">{formatAmount(stats.average)}</div>
-              </div>
-              <div>
-                <div className="summary-label">Highest</div>
-                <div className="summary-value">{formatAmount(stats.highest)}</div>
-              </div>
-              <div>
-                <div className="summary-label">Count</div>
-                <div className="summary-value">{stats.count}</div>
-              </div>
-              <div>
                 <div className="summary-label">This Month</div>
                 <div className="summary-value">{formatAmount(monthlyTotal)}</div>
+              </div>
+              <div>
+                <div className="summary-label">Total Distance</div>
+                <div className="summary-value" style={{ color: "#10b981" }}>{totalDistance} KM</div>
+              </div>
+              <div>
+                <div className="summary-label">Distance (This Month)</div>
+                <div className="summary-value" style={{ color: "#10b981" }}>{monthlyDistance} KM</div>
+              </div>
+              <div>
+                <div className="summary-label">Average Expense</div>
+                <div className="summary-value">{formatAmount(stats.average)}</div>
               </div>
             </div>
 
@@ -539,7 +565,10 @@ function App() {
             {loading ? (
               <Loading />
             ) : sortedExpenses.length > 0 ? (
-              <ExpenseChart expenses={sortedExpenses} allExpenses={expenses} />
+              <>
+                <ExpenseChart expenses={sortedExpenses} allExpenses={expenses} />
+                <DistanceChart logs={odometerLogs} />
+              </>
             ) : (
               <div className="empty-state">
                 <p>📊 No expense data to display</p>
@@ -824,7 +853,18 @@ function App() {
           </div>
         )}
 
-        {/* TAB 4: SETTINGS & TOOLS */}
+        {/* TAB 4: TRAVEL KM LOGS */}
+        {activeTab === "odometer" && (
+          <div className="tab-pane">
+            <OdometerLogger
+              logs={odometerLogs}
+              onUpdate={fetchOdometerLogs}
+              showToast={showToast}
+            />
+          </div>
+        )}
+
+        {/* TAB 5: SETTINGS & TOOLS */}
         {activeTab === "tools" && (
           <div className="tab-pane">
             <div className="panel-card tools-card">
@@ -891,6 +931,13 @@ function App() {
         >
           <div className="fab-plus"><FaPlus /></div>
           <span>Add</span>
+        </button>
+        <button
+          className={`bottom-nav-item ${activeTab === "odometer" ? "active" : ""}`}
+          onClick={() => setActiveTab("odometer")}
+        >
+          <FaRoad />
+          <span>KM Log</span>
         </button>
         <button
           className={`bottom-nav-item ${activeTab === "tools" ? "active" : ""}`}

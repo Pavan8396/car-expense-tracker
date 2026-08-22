@@ -73,6 +73,7 @@ function AddExpense({ onAdd, showToast, categories = [] }) {
       <input
         id="date-input"
         type="date"
+        placeholder="Select Expense Date (YYYY-MM-DD)"
         value={date}
         onChange={(e) => setDate(e.target.value)}
         required

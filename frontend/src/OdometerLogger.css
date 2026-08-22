@@ -1,0 +1,139 @@
+.odometer-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.odo-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.odo-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.odo-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.odo-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.odo-form input {
+  padding: 12px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-size: 14px;
+  outline: none;
+  min-height: 44px;
+  transition: all 0.2s ease;
+}
+
+.odo-form input:focus {
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.calculated-distance-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 10px;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 15px;
+  min-height: 44px;
+}
+
+.btn-save-odo {
+  grid-column: 1 / -1;
+  padding: 12px 20px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 46px;
+  transition: all 0.2s ease;
+}
+
+.btn-save-odo:hover {
+  background-color: #1d4ed8;
+}
+
+/* Odometer log list */
+.odo-logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.odo-log-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.odo-log-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.odo-log-date {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.odo-log-dist {
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.odo-log-readings {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.odo-log-notes {
+  font-size: 12px;
+  color: #475569;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.btn-delete-odo {
+  padding: 8px 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-odo:hover {
+  background: #dc2626;
+}
